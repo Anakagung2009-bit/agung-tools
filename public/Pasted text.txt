@@ -1,0 +1,449 @@
+// contexts/AuthContext.tsx
+"use client";
+
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import {
+  User,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  updateProfile,
+  onAuthStateChanged,
+  multiFactor,
+  MultiFactorError,
+  MultiFactorResolver,
+  PhoneAuthProvider,
+  PhoneMultiFactorGenerator,
+  TotpMultiFactorGenerator,
+  TotpSecret,
+  getAuth,
+  getMultiFactorResolver as getFirebaseMultiFactorResolver,
+  RecaptchaVerifier,
+  signInWithCustomToken as firebaseSignInWithCustomToken
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { collection, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ needVerificationWhatsapp?: boolean, uid?: string }>;
+  signUp: (email: string, password: string, additionalData?: { displayName?: string }) => Promise<void>;
+  logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  resendVerificationEmail: (email?: string) => Promise<void>;
+  checkEmailExists: (email: string) => Promise<boolean>;
+  // MFA Functions
+  enrollTOTP: (displayName?: string) => Promise<{ secret: TotpSecret, qrCodeUrl: string }>;
+  completeTOTPEnrollment: (secret: TotpSecret, verificationCode: string, displayName?: string) => Promise<void>;
+  enrollSMS: (phoneNumber: string, displayName?: string) => Promise<string>;
+  completeSMSEnrollment: (verificationId: string, verificationCode: string, displayName?: string) => Promise<void>;
+  unenrollFactor: (factorUid: string) => Promise<void>;
+  resolveMFASignIn: (resolver: MultiFactorResolver, verificationCode: string, factorId: string) => Promise<void>;
+  loginWithSSOToken: (token: string, userData: any) => Promise<void>;
+  getMultiFactorResolver: (error: MultiFactorError) => MultiFactorResolver;
+  // Passkey Functions
+  signInWithCustomToken: (customToken: string) => Promise<void>;
+  getPasskeys: () => Promise<any[]>;
+  removePasskey: (credentialId: string) => Promise<void>;
+  // WhatsApp 2FA Functions
+  requestWhatsAppOTP: (uid: string, phoneNumber?: string) => Promise<void>; // Updated signature
+  verifyWhatsAppOTP: (uid: string, otp: string) => Promise<{ success: boolean, user?: any }>;
+  toggleWhatsApp2FA: (uid: string, isEnabled: boolean, whatsappNumber?: string) => Promise<void>;
+  checkWhatsApp2FAStatus: (uid: string) => Promise<boolean>;
+  refreshUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
+const loginWithSSOToken = async (token: string, userData: any) => {
+  try {
+    await firebaseSignInWithCustomToken(auth, token);
+  } catch (error: any) {
+    console.error("Error logging in with SSO token:", error);
+    throw error;
+  }
+};
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  const refreshUser = async () => {
+    if (auth.currentUser) {
+      await auth.currentUser.getIdToken(true);
+      setUser(auth.currentUser);
+    }
+  };
+
+  const signIn = async (email: string, password: string) => {
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+
+      if (data.needVerificationWhatsapp) {
+        return { needVerificationWhatsapp: true, uid: data.uid };
+      } else {
+        await refreshUser();
+        return {};
+      }
+    } catch (error: any) {
+      if (error.code === 'auth/multi-factor-auth-required') {
+        throw error;
+      }
+      throw error;
+    }
+  };
+
+  const checkEmailExists = async (email: string): Promise<boolean> => {
+    try {
+      await signInWithEmailAndPassword(auth, email, 'dummy-password-that-will-fail');
+      return true;
+    } catch (error: any) {
+      if (error.code === 'auth/wrong-password') {
+        return true;
+      } else if (error.code === 'auth/user-not-found') {
+        return false;
+      } else if (error.code === 'auth/invalid-credential') {
+        try {
+          await sendPasswordResetEmail(auth, email);
+          return true;
+        } catch (resetError: any) {
+          if (resetError.code === 'auth/user-not-found') {
+            return false;
+          }
+          return true;
+        }
+      } else if (error.code === 'auth/too-many-requests') {
+        throw new Error('Too many attempts. Please try again later.');
+      } else {
+        console.error('Unexpected error checking email:', error);
+        return true;
+      }
+    }
+  };
+
+  const signUp = async (email: string, password: string, additionalData?: { displayName?: string }) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+    if (additionalData?.displayName) {
+      await updateProfile(userCredential.user, {
+        displayName: additionalData.displayName,
+      });
+    }
+
+    await sendEmailVerification(userCredential.user, {
+      url: `${window.location.origin}/signin`,
+      handleCodeInApp: false,
+    });
+
+    await signOut(auth);
+  };
+
+  const logout = async () => {
+    await signOut(auth);
+    await fetch('/api/logout', { method: 'POST' });
+  };
+
+  const resetPassword = async (email: string) => {
+    await sendPasswordResetEmail(auth, email);
+  };
+
+  const resendVerificationEmail = async (email?: string) => {
+    if (auth.currentUser) {
+      await sendEmailVerification(auth.currentUser, {
+        url: `${window.location.origin}/signin}`,
+        handleCodeInApp: false,
+      });
+    } else if (email) {
+      throw new Error('Please try signing up again or contact support if you continue to have issues.');
+    } else {
+      throw new Error('No user is currently signed in and no email provided');
+    }
+  };
+
+  // TOTP MFA Functions
+  const enrollTOTP = async (displayName?: string) => {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const multiFactorUser = multiFactor(auth.currentUser);
+    const session = await multiFactorUser.getSession();
+
+    const totpSecret = await TotpMultiFactorGenerator.generateSecret(session);
+    const qrCodeUrl = totpSecret.generateQrCodeUrl(auth.currentUser.email || '', displayName || 'My App');
+
+    return { secret: totpSecret, qrCodeUrl };
+  };
+
+  const completeTOTPEnrollment = async (secret: TotpSecret, verificationCode: string, displayName?: string) => {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const multiFactorAssertion = TotpMultiFactorGenerator.assertionForEnrollment(secret, verificationCode);
+    const multiFactorUser = multiFactor(auth.currentUser);
+
+    await multiFactorUser.enroll(multiFactorAssertion, displayName);
+  };
+
+  // SMS MFA Functions
+  const enrollSMS = async (phoneNumber: string, displayName?: string) => {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const multiFactorUser = multiFactor(auth.currentUser);
+    const session = await multiFactorUser.getSession();
+
+    const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+    });
+
+    const phoneOptions = {
+      phoneNumber,
+      session: session,
+    };
+
+    const phoneAuthProvider = new PhoneAuthProvider(auth);
+    const verificationId = await phoneAuthProvider.verifyPhoneNumber(phoneOptions, recaptchaVerifier);
+
+    return verificationId;
+  };
+
+  const completeSMSEnrollment = async (verificationId: string, verificationCode: string, displayName?: string) => {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const cred = PhoneAuthProvider.credential(verificationId, verificationCode);
+    const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
+    const multiFactorUser = multiFactor(auth.currentUser);
+
+    await multiFactorUser.enroll(multiFactorAssertion, displayName);
+  };
+
+  const unenrollFactor = async (factorUid: string) => {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const multiFactorUser = multiFactor(auth.currentUser);
+    await multiFactorUser.unenroll(factorUid);
+  };
+
+  const resolveMFASignIn = async (
+    resolver: MultiFactorResolver,
+    verificationCode: string,
+    factorId: string,
+    verificationId?: string
+  ) => {
+    let multiFactorAssertion;
+
+    if (factorId === PhoneMultiFactorGenerator.FACTOR_ID) {
+      if (!verificationId) throw new Error("Missing verificationId for SMS MFA");
+      const cred = PhoneAuthProvider.credential(verificationId, verificationCode);
+      multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
+    } else if (factorId === TotpMultiFactorGenerator.FACTOR_ID) {
+      const totpHint = resolver.hints.find(h => h.factorId === TotpMultiFactorGenerator.FACTOR_ID);
+      if (!totpHint) throw new Error("No TOTP factor found");
+      multiFactorAssertion = TotpMultiFactorGenerator.assertionForSignIn(totpHint.uid, verificationCode);
+    } else {
+      throw new Error("Unsupported factor ID");
+    }
+
+    await resolver.resolveSignIn(multiFactorAssertion);
+  };
+
+  const getMultiFactorResolver = (error: MultiFactorError) => {
+    return getFirebaseMultiFactorResolver(getAuth(), error);
+  };
+
+  const signInWithCustomToken = async (customToken: string) => {
+    await firebaseSignInWithCustomToken(auth, customToken);
+  };
+
+  const getPasskeys = async (): Promise<any[]> => {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const passkeysRef = collection(db, 'users', auth.currentUser.uid, 'passkeys');
+    const snapshot = await getDocs(passkeysRef);
+
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+  };
+
+  const removePasskey = async (credentialId: string) => {
+    if (!auth.currentUser) {
+      throw new Error('No authenticated user');
+    }
+
+    const passkeyRef = doc(db, 'users', auth.currentUser.uid, 'passkeys', credentialId);
+    await deleteDoc(passkeyRef);
+  };
+
+  // WhatsApp 2FA Functions
+  // UPDATED: Added phoneNumber parameter support
+  const requestWhatsAppOTP = async (uid: string, phoneNumber?: string) => {
+    try {
+      const response = await fetch('/api/request-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        // Send phoneNumber if provided (for new setup verification)
+        body: JSON.stringify({ uid, phoneNumber })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send OTP');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to send OTP');
+    }
+  };
+
+  const verifyWhatsAppOTP = async (uid: string, otp: string) => {
+    try {
+      const response = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ uid, otp })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to verify OTP');
+      }
+
+      if (data.success) {
+        // If API returns token, use it (login flow)
+        if (data.token) {
+          await firebaseSignInWithCustomToken(auth, data.token);
+        } else {
+          // Otherwise just reload user state (setup flow)
+          await auth.currentUser?.reload();
+        }
+
+        if (auth.currentUser) {
+          setUser(auth.currentUser);
+        }
+
+        return { success: true, user: data.user };
+      }
+
+      return { success: false };
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to verify OTP');
+    }
+  };
+
+  const toggleWhatsApp2FA = async (uid: string, isEnabled: boolean, whatsappNumber?: string) => {
+    try {
+      const response = await fetch('/api/toggle-whatsapp-2fa', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ uid, isVerificationWhatsapp: isEnabled, whatsappNumber })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update 2FA settings');
+      }
+
+      return data;
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to update 2FA settings');
+    }
+  };
+
+  const checkWhatsApp2FAStatus = async (uid: string): Promise<boolean> => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      const userData = userDoc.data();
+      return userData?.isVerificationWhatsapp || false;
+    } catch (error: any) {
+      console.error('Error checking WhatsApp 2FA status:', error);
+      return false;
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    signIn,
+    signUp,
+    logout,
+    resetPassword,
+    resendVerificationEmail,
+    checkEmailExists,
+    enrollTOTP,
+    completeTOTPEnrollment,
+    enrollSMS,
+    completeSMSEnrollment,
+    unenrollFactor,
+    resolveMFASignIn,
+    getMultiFactorResolver,
+    signInWithCustomToken,
+    getPasskeys,
+    removePasskey,
+    requestWhatsAppOTP,
+    verifyWhatsAppOTP,
+    toggleWhatsApp2FA,
+    checkWhatsApp2FAStatus,
+    loginWithSSOToken,
+    refreshUser
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
