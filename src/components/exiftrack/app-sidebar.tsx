@@ -10,34 +10,36 @@ import {
   Wrench,
   Settings,
   Shield,
-  Zap
+  Zap,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const menuItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/upload", label: "File Metadata", icon: Upload },
-  { href: "/batch", label: "Batch Analyzer", icon: Files },
-  { href: "/history", label: "History", icon: History },
-  { href: "/tools", label: "Extra Tools", icon: Wrench },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+import { useI18n } from "@/hooks/use-i18n";
+import { LanguageSelector } from "@/components/language-selector";
 
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { privacyMode, history } = useAppStore();
   const pathname = usePathname();
+  const { t } = useI18n();
+
+  const menuItems = [
+    { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+    { href: "/upload", labelKey: "nav.fileMetadata", icon: Upload },
+    { href: "/batch", labelKey: "nav.batchAnalyzer", icon: Files },
+    { href: "/history", labelKey: "nav.history", icon: History },
+    { href: "/tools", labelKey: "nav.extraTools", icon: Wrench },
+    { href: "/steganography", labelKey: "nav.steganography", icon: EyeOff },
+    { href: "/settings", labelKey: "nav.settings", icon: Settings },
+  ];
 
   return (
     <aside className="h-full w-full bg-sidebar flex flex-col">
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2 px-4 py-5 border-b border-border hover:bg-accent/50 transition-colors">
-        {/* <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Zap className="h-5 w-5" />
-        </div> */}
         <div className="flex flex-col">
           <span className="font-semibold text-foreground">Agung Tools</span>
         </div>
@@ -57,7 +59,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
                 )}
               >
                 <item.icon className="h-4 w-4" />
-                {item.label}
+                {t(item.labelKey)}
                 {item.href === "/history" && history.length > 0 && (
                   <Badge variant="secondary" className="ml-auto text-xs">
                     {history.length}
@@ -71,6 +73,11 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
       <Separator />
 
+      {/* Language Selector */}
+      <div className="px-3 pt-3 pb-1">
+        <LanguageSelector variant="compact" className="w-full" />
+      </div>
+
       {/* Privacy indicator */}
       <div className="p-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -81,11 +88,11 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
             )}
           />
           <span>
-            {privacyMode ? "Privacy Mode Active" : "Privacy Mode Off"}
+            {privacyMode ? t("common.privacyOn") : t("common.privacyOff")}
           </span>
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          All processing happens locally
+          {t("common.processingLocal")}
         </p>
       </div>
     </aside>

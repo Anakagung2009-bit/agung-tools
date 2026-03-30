@@ -50,6 +50,7 @@ import {
 } from "@/lib/tools";
 import { playMorse, stopMorse, DEFAULT_TIMING } from "@/lib/morse-audio";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/hooks/use-i18n";
 
 // Tool categories
 const tools = [
@@ -66,14 +67,15 @@ const tools = [
 
 export function ToolsGrid() {
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
+  const { t } = useI18n();
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">DevTools Lab</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{t("tools.title")}</h1>
         <p className="text-muted-foreground mt-1">
-          Encoding, decoding, and conversion utilities - all running client-side
+          {t("tools.subtitle")}
         </p>
       </div>
 
@@ -95,7 +97,7 @@ export function ToolsGrid() {
               <div>
                 <p className="font-medium">{tool.name}</p>
                 <p className="text-sm text-muted-foreground capitalize">
-                  {tool.category}
+                  {t(`tools.categories.${tool.category}`) || tool.category}
                 </p>
               </div>
             </CardContent>
@@ -125,9 +127,9 @@ export function ToolsGrid() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Binary className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium mb-1">Select a tool to get started</p>
+            <p className="text-lg font-medium mb-1">{t("tools.selectHint")}</p>
             <p className="text-sm text-muted-foreground">
-              Click on any tool card above to open it
+              {t("tools.selectHintSub")}
             </p>
           </CardContent>
         </Card>

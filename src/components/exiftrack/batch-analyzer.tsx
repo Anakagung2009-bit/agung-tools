@@ -26,6 +26,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/hooks/use-i18n";
 
 export function BatchAnalyzer() {
   const { batchFiles, addBatchFile, removeBatchFile, clearBatchFiles, addToHistory } =
@@ -33,6 +34,7 @@ export function BatchAnalyzer() {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const { t } = useI18n();
 
   const processFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -118,9 +120,9 @@ export function BatchAnalyzer() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Batch Analyzer</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{t("batch.title")}</h1>
           <p className="text-muted-foreground mt-1">
-            Analyze multiple files and compare metadata
+            {t("batch.subtitle")}
           </p>
         </div>
         <div className="flex gap-2">
@@ -128,7 +130,7 @@ export function BatchAnalyzer() {
             <>
               <Button variant="outline" className="gap-1" onClick={exportToJson}>
                 <Download className="h-4 w-4" />
-                Export JSON
+                {t("batch.exportJson")}
               </Button>
               <Button
                 variant="outline"
@@ -136,7 +138,7 @@ export function BatchAnalyzer() {
                 onClick={clearBatchFiles}
               >
                 <Trash2 className="h-4 w-4" />
-                Clear All
+                {t("batch.clearAll")}
               </Button>
             </>
           )}
@@ -166,9 +168,9 @@ export function BatchAnalyzer() {
           ) : (
             <>
               <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-              <p className="text-lg font-medium mb-1">Drop files here</p>
+              <p className="text-lg font-medium mb-1">{t("batch.dropHere")}</p>
               <p className="text-sm text-muted-foreground mb-3">
-                or click to select multiple files
+                {t("batch.orSelect")}
               </p>
 
               <label>
@@ -180,7 +182,7 @@ export function BatchAnalyzer() {
                   multiple
                 />
                 <Button asChild variant="outline">
-                  <span>Select Files</span>
+                  <span>{t("batch.selectFiles")}</span>
                 </Button>
               </label>
             </>
@@ -193,7 +195,7 @@ export function BatchAnalyzer() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
-              Analyzed Files ({batchFiles.length})
+              {t("batch.analyzedFiles")} ({batchFiles.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -201,12 +203,12 @@ export function BatchAnalyzer() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>File Name</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Resolution</TableHead>
-                    <TableHead>Camera</TableHead>
-                    <TableHead>GPS</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>{t("batch.colFileName")}</TableHead>
+                    <TableHead>{t("batch.colSize")}</TableHead>
+                    <TableHead>{t("batch.colResolution")}</TableHead>
+                    <TableHead>{t("batch.colCamera")}</TableHead>
+                    <TableHead>{t("batch.colGps")}</TableHead>
+                    <TableHead>{t("batch.colDate")}</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -274,9 +276,9 @@ export function BatchAnalyzer() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <FileImage className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <p className="text-lg font-medium mb-1">No files analyzed yet</p>
+            <p className="text-lg font-medium mb-1">{t("batch.noFiles")}</p>
             <p className="text-sm text-muted-foreground">
-              Upload multiple files to compare their metadata
+              {t("batch.noFilesHint")}
             </p>
           </CardContent>
         </Card>

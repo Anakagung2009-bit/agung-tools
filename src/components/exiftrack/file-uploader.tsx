@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/hooks/use-i18n";
 
 const ACCEPTED_TYPES = [
   "image/jpeg",
@@ -56,6 +57,7 @@ export function FileUploader() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const processFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -66,7 +68,7 @@ export function FileUploader() {
       });
 
       if (validFiles.length === 0) {
-        setError("No valid files selected. Please upload images, videos, or audio files.");
+        setError(t("upload.invalidFile"));
         return;
       }
 
@@ -95,7 +97,7 @@ export function FileUploader() {
 
         setProgress(100);
       } catch (err) {
-        setError("Failed to process file. Please try again.");
+        setError(t("upload.failedProcess"));
         console.error(err);
       } finally {
         setIsProcessing(false);
@@ -169,9 +171,9 @@ export function FileUploader() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Upload & Analyze</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{t("upload.title")}</h1>
         <p className="text-muted-foreground mt-1">
-          Drag & drop, paste, or select files to extract metadata
+          {t("upload.subtitle")}
         </p>
       </div>
 
@@ -201,17 +203,17 @@ export function FileUploader() {
             {isProcessing ? (
               <div className="w-full max-w-xs space-y-3">
                 <p className="text-sm text-muted-foreground text-center">
-                  Processing file...
+                  {t("upload.processingFile")}
                 </p>
                 <Progress value={progress} className="h-2" />
               </div>
             ) : (
               <>
                 <p className="text-lg font-medium mb-1">
-                  Drop files here or click to upload
+                  {t("upload.dropHere")}
                 </p>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Supports JPG, PNG, HEIC, MP4, MOV, and more
+                  {t("upload.supports")}
                 </p>
 
                 <label>
@@ -223,12 +225,12 @@ export function FileUploader() {
                     multiple
                   />
                   <Button asChild>
-                    <span>Browse Files</span>
+                    <span>{t("upload.browseFiles")}</span>
                   </Button>
                 </label>
 
                 <p className="text-xs text-muted-foreground mt-4">
-                  Tip: You can also paste images from clipboard (Ctrl+V)
+                  {t("upload.pasteHint")}
                 </p>
               </>
             )}
@@ -263,7 +265,7 @@ export function FileUploader() {
                 <Upload className="h-5 w-5 text-primary" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium">Processing...</p>
+                <p className="text-sm font-medium">{t("upload.processing")}</p>
                 <Progress value={progress} className="h-2 mt-2" />
               </div>
             </div>

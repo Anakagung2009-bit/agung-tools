@@ -12,10 +12,14 @@ import {
   Code,
   Trash2,
   Download,
-  Upload,
   Info,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useI18n } from "@/hooks/use-i18n";
+import { LanguageSelector } from "@/components/language-selector";
+import { detectBrowserLocale } from "@/lib/i18n";
+import { Badge } from "@/components/ui/badge";
 
 export function SettingsView() {
   const {
@@ -29,11 +33,14 @@ export function SettingsView() {
     clearHistory,
   } = useAppStore();
 
+  const { t, locale, detectedLocale } = useI18n();
+
   const exportSettings = () => {
     const settings = {
       darkMode,
       showRawView,
       privacyMode,
+      locale,
       exportedAt: new Date().toISOString(),
     };
 
@@ -46,17 +53,15 @@ export function SettingsView() {
     a.download = "agung-tools-settings.json";
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Settings exported");
+    toast.success(t("settings.data.settingsExported"));
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">
-          Configure Agung Tools to your preferences
-        </p>
+        <h1 className="text-2xl font-semibold text-foreground">{t("settings.title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("settings.subtitle")}</p>
       </div>
 
       {/* Privacy */}
@@ -64,18 +69,16 @@ export function SettingsView() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">Privacy & Security</CardTitle>
+            <CardTitle className="text-lg">{t("settings.privacy.title")}</CardTitle>
           </div>
-          <CardDescription>
-            All file processing happens locally in your browser
-          </CardDescription>
+          <CardDescription>{t("settings.privacy.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="privacy-mode">Privacy Mode</Label>
+              <Label htmlFor="privacy-mode">{t("settings.privacy.privacyMode")}</Label>
               <p className="text-sm text-muted-foreground">
-                Shows a visual indicator that processing is local-only
+                {t("settings.privacy.privacyModeDesc")}
               </p>
             </div>
             <Switch
@@ -92,15 +95,15 @@ export function SettingsView() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Moon className="h-5 w-5" />
-            <CardTitle className="text-lg">Appearance</CardTitle>
+            <CardTitle className="text-lg">{t("settings.appearance.title")}</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="dark-mode">Dark Mode</Label>
+              <Label htmlFor="dark-mode">{t("settings.appearance.darkMode")}</Label>
               <p className="text-sm text-muted-foreground">
-                Use dark theme for better visibility in low light
+                {t("settings.appearance.darkModeDesc")}
               </p>
             </div>
             <Switch
@@ -112,20 +115,45 @@ export function SettingsView() {
         </CardContent>
       </Card>
 
+      {/* Language */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Globe className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">{t("settings.language.title")}</CardTitle>
+          </div>
+          <CardDescription>{t("settings.language.subtitle")}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5 flex-1">
+              <Label>{t("settings.language.label")}</Label>
+              <p className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                {t("settings.language.autoDetected")}:
+                <Badge variant="secondary" className="text-xs font-mono">
+                  {detectedLocale === "id" ? "🇮🇩 id" : "🇬🇧 en"}
+                </Badge>
+              </p>
+            </div>
+            <LanguageSelector variant="full" className="w-48 shrink-0" />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Metadata View */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <Code className="h-5 w-5" />
-            <CardTitle className="text-lg">Metadata View</CardTitle>
+            <CardTitle className="text-lg">{t("settings.metadata.title")}</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="raw-view">Default to Raw View</Label>
+              <Label htmlFor="raw-view">{t("settings.metadata.rawView")}</Label>
               <p className="text-sm text-muted-foreground">
-                Show raw JSON metadata instead of structured view
+                {t("settings.metadata.rawViewDesc")}
               </p>
             </div>
             <Switch
@@ -140,17 +168,15 @@ export function SettingsView() {
       {/* Data Management */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Data Management</CardTitle>
-          <CardDescription>
-            Manage your local data and export settings
-          </CardDescription>
+          <CardTitle className="text-lg">{t("settings.data.title")}</CardTitle>
+          <CardDescription>{t("settings.data.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>History</Label>
+              <Label>{t("settings.data.history")}</Label>
               <p className="text-sm text-muted-foreground">
-                {history.length} files in history
+                {t("settings.data.historyCount", { count: history.length })}
               </p>
             </div>
             <Button
@@ -159,12 +185,12 @@ export function SettingsView() {
               className="gap-1 text-destructive"
               onClick={() => {
                 clearHistory();
-                toast.success("History cleared");
+                toast.success(t("settings.data.historyCleared"));
               }}
               disabled={history.length === 0}
             >
               <Trash2 className="h-4 w-4" />
-              Clear
+              {t("settings.data.clearHistory")}
             </Button>
           </div>
 
@@ -173,7 +199,7 @@ export function SettingsView() {
           <div className="flex gap-2">
             <Button variant="outline" className="gap-1 flex-1" onClick={exportSettings}>
               <Download className="h-4 w-4" />
-              Export Settings
+              {t("settings.data.exportSettings")}
             </Button>
           </div>
         </CardContent>
@@ -184,15 +210,11 @@ export function SettingsView() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Info className="h-5 w-5" />
-            <CardTitle className="text-lg">About Agung Tools</CardTitle>
+            <CardTitle className="text-lg">{t("settings.about.title")}</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            Agung Tools is a powerful utility platform designed to help
-            developers, photographers, and internet users accomplish
-            their daily tasks seamlessly.
-          </p>
+          <p className="text-sm text-muted-foreground">{t("settings.about.desc")}</p>
           <Separator className="my-4" />
         </CardContent>
       </Card>

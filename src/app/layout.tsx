@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Google_Sans } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { LanguageProvider } from "@/hooks/use-i18n";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -63,7 +64,7 @@ export const metadata: Metadata = {
     title: "Agung Tools - Free Online Developer Utilities",
     description:
       "Convert Text to Binary, encode Base64, decode Hex, translate Morse Code, Caesar Cipher, analyze EXIF metadata — all free and locally in your browser.",
-    url: "https://agung-tools.vercel.app",
+    url: "https://tools.agungdev.com",
   },
   twitter: {
     card: "summary_large_image",
@@ -101,8 +102,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster richColors position="bottom-right" />
+          <LanguageProvider>
+            {children}
+            <Toaster richColors position="bottom-right" />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>
